@@ -1,6 +1,7 @@
 {
     "name": "kogomar/subscriber-api",
     "description": "GitHub Repository Release Subscriber API",
+    "license": "MIT",
     "type": "project",
     "require": {
         "php": ">=8.1",
