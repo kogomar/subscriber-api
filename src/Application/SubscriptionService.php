@@ -2,6 +2,7 @@
 
 namespace App\Application;
 
+use App\Domain\Repository\RepositoryRepositoryInterface;
 use App\Domain\Repository\SubscriptionRepositoryInterface;
 use App\Domain\Client\GitHubClientInterface;
 use App\Domain\Cache\CacheInterface;
@@ -12,18 +13,12 @@ class SubscriptionService
     private const CACHE_KEY_REPO_EXISTS = 'repo_exists_:';
     private const CACHE_KEY_LATEST_RELEASE = 'latest_release_:';
 
-    private SubscriptionRepositoryInterface $repository;
-    private GitHubClientInterface $github;
-    private CacheInterface $cache;
-
     public function __construct(
-        SubscriptionRepositoryInterface $repository,
-        GitHubClientInterface $github,
-        CacheInterface $cache,
+        private RepositoryRepositoryInterface $repoRepo,
+        private SubscriptionRepositoryInterface $subRepo,
+        private GitHubClientInterface $github,
+        private CacheInterface $cache,
     ) {
-        $this->repository = $repository;
-        $this->github = $github;
-        $this->cache = $cache;
     }
 
     /**
@@ -49,10 +44,10 @@ class SubscriptionService
 
         [$owner, $repo] = explode('/', $repositoryName);
 
-        $this->repository->beginTransaction();
+        $this->repoRepo->beginTransaction();
 
         try {
-            $repoData = $this->repository->findRepository($owner, $repo);
+            $repoData = $this->repoRepo->find($owner, $repo);
 
             if (!$repoData) {
                 $releaseCacheKey = self::CACHE_KEY_LATEST_RELEASE . $repositoryName;
@@ -67,20 +62,20 @@ class SubscriptionService
                     $latestRelease = null;
                 }
 
-                $repoId = $this->repository->createRepository($owner, $repo, $latestRelease);
+                $repoId = $this->repoRepo->create($owner, $repo, $latestRelease);
             } else {
                 $repoId = $repoData['id'];
             }
 
-            if (!$this->repository->subscriptionExists($repoId, $email)) {
-                $this->repository->addSubscription($repoId, $email);
+            if (!$this->subRepo->exists($repoId, $email)) {
+                $this->subRepo->add($repoId, $email);
             } else {
                 throw new Exception("You are already subscribed to this repository", 422);
             }
 
-            $this->repository->commit();
+            $this->repoRepo->commit();
         } catch (Exception $e) {
-            $this->repository->rollBack();
+            $this->repoRepo->rollBack();
             throw $e;
         }
     }

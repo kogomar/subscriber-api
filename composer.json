@@ -27,6 +27,6 @@
     "scripts": {
         "test": "phpunit tests",
         "phpcs": "phpcs src tests",
-        "phpstan": "phpstan analyze src tests"
+        "phpstan": "phpstan analyze src tests --memory-limit=-1"
     }
 }

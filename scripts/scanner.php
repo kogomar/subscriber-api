@@ -2,59 +2,60 @@
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use App\Client\GitHubClient;
-use App\Database;
-use App\Service\EmailNotifierService;
+use App\Application\ScannerService;
+use App\Application\Listener\SendReleaseNotificationsListener;
+use App\Domain\Repository\RepositoryRepositoryInterface;
+use App\Domain\Repository\SubscriptionRepositoryInterface;
+use App\Domain\Client\GitHubClientInterface;
+use App\Domain\Notification\NotifierInterface;
+use App\Domain\Event\EventDispatcherInterface;
+use App\Domain\Event\NewReleaseDetectedEvent;
+use App\Domain\Logging\LoggerInterface;
+use App\Domain\Cache\CacheInterface;
+use App\Infrastructure\Cache\RedisCache;
+use App\Infrastructure\Event\SimpleEventDispatcher;
+use App\Infrastructure\ExternalApi\GuzzleGitHubClient;
+use App\Infrastructure\Logging\ConsoleLogger;
+use App\Infrastructure\Notification\EmailNotifier;
+use App\Infrastructure\Persistence\PdoRepositoryRepository;
+use App\Infrastructure\Persistence\PdoSubscriptionRepository;
+use DI\ContainerBuilder;
 
-echo "Starting background scanner...\n";
+$containerBuilder = new ContainerBuilder();
+$containerBuilder->addDefinitions([
+    PDO::class => function () {
+        return App\Database::getConnection();
+    },
+    RepositoryRepositoryInterface::class => DI\autowire(PdoRepositoryRepository::class),
+    SubscriptionRepositoryInterface::class => DI\autowire(PdoSubscriptionRepository::class),
+    GitHubClientInterface::class => DI\autowire(GuzzleGitHubClient::class),
+    NotifierInterface::class => DI\autowire(EmailNotifier::class),
+    CacheInterface::class => DI\autowire(RedisCache::class),
+    LoggerInterface::class => DI\autowire(ConsoleLogger::class),
+    EventDispatcherInterface::class => DI\autowire(SimpleEventDispatcher::class),
+    ScannerService::class => DI\autowire(ScannerService::class),
+]);
 
-$db = Database::getConnection();
-$github = new GitHubClient();
-$notifier = new EmailNotifierService();
+$container = $containerBuilder->build();
+
+/** @var EventDispatcherInterface $dispatcher */
+$dispatcher = $container->get(EventDispatcherInterface::class);
+/** @var SendReleaseNotificationsListener $notificationListener */
+$notificationListener = $container->get(SendReleaseNotificationsListener::class);
+
+$dispatcher->addListener(NewReleaseDetectedEvent::class, $notificationListener);
+
+/** @var ScannerService $scanner */
+$scanner = $container->get(ScannerService::class);
+/** @var LoggerInterface $logger */
+$logger = $container->get(LoggerInterface::class);
+
+$interval = (int)(getenv('SCANNER_INTERVAL') ?: 60);
+
+$logger->info("Starting background scanner (Interval: {$interval}s)...");
 
 while (true) {
-    echo "Running check at " . date('Y-m-d H:i:s') . "\n";
-    
-    try {
-        $stmt = $db->query("SELECT * FROM repositories");
-        $repositories = $stmt->fetchAll();
-
-        foreach ($repositories as $repo) {
-            $fullName = $repo['owner'] . '/' . $repo['repo'];
-            echo "Checking $fullName...\n";
-
-            try {
-                $latestTag = $github->getLatestRelease($fullName);
-                
-                if ($latestTag && $latestTag !== $repo['last_seen_tag']) {
-                    echo "Found new release: $latestTag (was {$repo['last_seen_tag']})\n";
-                    
-                    // fetch subscribers
-                    $subStmt = $db->prepare("SELECT email FROM subscriptions WHERE repository_id = ?");
-                    $subStmt->execute([$repo['id']]);
-                    $subscribers = $subStmt->fetchAll(PDO::FETCH_COLUMN);
-
-                    foreach ($subscribers as $email) {
-                        echo "Notifying $email...\n";
-                        $notifier->notify($email, $fullName, $latestTag);
-                    }
-
-                    // update last seen tag
-                    $updateStmt = $db->prepare("UPDATE repositories SET last_seen_tag = ? WHERE id = ?");
-                    $updateStmt->execute([$latestTag, $repo['id']]);
-                }
-            } catch (\Exception $e) {
-                echo "Error checking $fullName: " . $e->getMessage() . "\n";
-                if ($e->getCode() === 429) {
-                    echo "Rate limit exceeded. Waiting for longer before next loop.\n";
-                    sleep(60);
-                }
-            }
-        }
-    } catch (\Exception $e) {
-        echo "Database error: " . $e->getMessage() . "\n";
-    }
-
-    echo "Sleeping for 60 seconds...\n";
-    sleep(60);
+    $logger->info("Starting scan cycle...");
+    $scanner->runScan();
+    sleep($interval);
 }

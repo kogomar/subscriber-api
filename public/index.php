@@ -2,11 +2,15 @@
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+use App\Domain\Notification\NotifierInterface;
+use App\Infrastructure\Notification\EmailNotifier;
 use App\Router;
 use App\Database;
+use App\Domain\Repository\RepositoryRepositoryInterface;
 use App\Domain\Repository\SubscriptionRepositoryInterface;
 use App\Domain\Client\GitHubClientInterface;
 use App\Domain\Cache\CacheInterface;
+use App\Infrastructure\Persistence\PdoRepositoryRepository;
 use App\Infrastructure\Persistence\PdoSubscriptionRepository;
 use App\Infrastructure\ExternalApi\GuzzleGitHubClient;
 use App\Infrastructure\Cache\RedisCache;
@@ -23,8 +27,10 @@ $containerBuilder->addDefinitions([
     PDO::class => function () {
         return Database::getConnection();
     },
+    RepositoryRepositoryInterface::class => DI\autowire(PdoRepositoryRepository::class),
     SubscriptionRepositoryInterface::class => DI\autowire(PdoSubscriptionRepository::class),
     GitHubClientInterface::class => DI\autowire(GuzzleGitHubClient::class),
+    NotifierInterface::class => DI\autowire(EmailNotifier::class),
     CacheInterface::class => DI\autowire(RedisCache::class),
     RedisClient::class => function (Psr\Container\ContainerInterface $c) {
         return $c->get(CacheInterface::class)->getRawClient();
