@@ -37,7 +37,7 @@ class DefaultController
     {
         header('Content-Type: text/html');
         return $this->view->render('index', [
-            'title' => 'OctoNotify | GitHub Release Alerts'
+            'title' => 'Notify | GitHub Release Alerts'
         ]);
     }
 

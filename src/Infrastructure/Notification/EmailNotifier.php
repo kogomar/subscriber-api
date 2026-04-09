@@ -27,7 +27,7 @@ class EmailNotifier implements NotifierInterface
             $mail->Port = $this->port;
             $mail->SMTPAuth = false;
 
-            $mail->setFrom('no-reply@octonotify.com', 'Notify');
+            $mail->setFrom('no-reply@notify.com', 'Notify');
             $mail->addAddress($email);
 
             $mail->isHTML(true);

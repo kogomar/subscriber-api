@@ -1,6 +1,6 @@
 <div class="container">
     <div class="glass-card">
-        <h1>OctoNotify</h1>
+        <h1>Notify</h1>
         <p class="subtitle">Get instant email alerts for new GitHub releases</p>
         
         <form id="subscribeForm">

@@ -1,4 +1,4 @@
-# 🐙 OctoNotify: GitHub Release Subscriber API
+# Notify: GitHub Release Subscriber API
 
 A professional monolithic PHP 8.4 service for tracking new releases in GitHub repositories and providing instant email notifications to subscribers.
 
@@ -42,16 +42,17 @@ This project adheres to high coding standards (PSR-12, SOLID):
   ```
 - **Static Analysis (PHPStan)**:
   ```bash
-  docker exec subscriber-api-app-1 composer analyze
+  docker exec subscriber-api-app-1 composer phpstan
   ```
 - **Coding Style Check (PHPCS)**:
   ```bash
-  docker exec subscriber-api-app-1 composer lint
+  docker exec subscriber-api-app-1 composer phpcs
   ```
 
 ## 🔒 Security
 
 All restricted API endpoints are protected using the `App-Api-Key` header. Security configuration is managed via `.env`.
+- **API Key**: dGVzdC1hcGkta2V5LXByb3plY3QtMjAyNi1leGFtcGxlLWJ5LWdlbWluaQ==
 
 ## 📈 Background Scanner (Daemon)
 
